@@ -99,7 +99,7 @@ next_slot(Pool) ->
               erlang:system_info(schedulers_online)).
 
 next_slot(Pool, Partition, Partitions) ->
-    Size = worker_count(Pool),
+    {ok, Size} = worker_count(Pool),
     PartitionSize = Size div Partitions,
     MaxValue = PartitionSize * Partition,
     MinValue = MaxValue - PartitionSize,
@@ -111,7 +111,7 @@ next_slot(Pool, Partition, Partitions) ->
 worker_count(Pool) ->
     case ets:lookup(?SIZE_TABLE, Pool) of
         [{Pool, Size}] ->
-            Size;
+            {ok, Size};
         [] ->
             {error, pool_not_found}
     end.
@@ -161,7 +161,7 @@ handle_call({connect, Pool, Pid}, _From, State) ->
             true = ets:insert_new(?TABLE, {worker, {Pool, Pid}, Monitor, 0, undefined}),
             ets:insert(?SIZE_TABLE, {Pool, length(workers(Pool))}),
 
-            Size = worker_count(Pool),
+            {ok, Size} = worker_count(Pool),
             PartitionSize = Size div erlang:system_info(schedulers),
 
             lists:foreach(fun (Slot) ->
@@ -232,7 +232,7 @@ integration_test_() ->
       ?_test(test_monitor()),
       ?_test(test_already_connected()),
       ?_test(test_disconnect()),
-      {timeout, 60, ?_test(test_performance())}
+      {timeout, 300, ?_test(test_performance())}
      ]}.
 
 
@@ -317,7 +317,7 @@ test_next_slot() ->
                    W
                end || _ <- lists:seq(1, 32)],
 
-    32 = worker_count(Pool),
+    {ok, 32} = worker_count(Pool),
 
     ?assertEqual([0, 1, 2, 3],
                  lists:usort(
@@ -353,10 +353,10 @@ test_already_connected() ->
     [] = workers(p),
     ok = connect(p),
     [{_, 0}] = workers(p),
-    1 = worker_count(p),
+    {ok, 1} = worker_count(p),
     {error, already_connected} = connect(p),
     [{_, 0}] = workers(p),
-    1 = worker_count(p),
+    {ok, 1} = worker_count(p),
     ok = disconnect(p).
 
 
